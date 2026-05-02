@@ -192,7 +192,7 @@ struct worker_instance {
 
 	double best_diff; /* Best share found by this worker */
 	int64_t best_ever; /* Best share ever found by this worker */
-	int mindiff; /* User chosen mindiff */
+	double mindiff; /* User chosen mindiff */
 
 	bool idle;
 	bool notified_idle;
@@ -3389,7 +3389,7 @@ static stratum_instance_t *__stratum_add_instance(ckpool_t *ckp, int64_t id, con
 	if (server >= ckp->serverurls)
 		server = 0;
 	client->server = server;
-	client->diff = client->old_diff = ckp->startdiff;
+	client->diff = client->old_diff = (int64_t)ckp->startdiff;
 	if (ckp->server_highdiff && ckp->server_highdiff[server]) {
 		client->suggest_diff = ckp->highdiff;
 		if (client->suggest_diff > client->diff)
@@ -4128,7 +4128,7 @@ static json_t *workerinfo(const user_instance_t *user, const worker_instance_t *
 {
 	json_t *val;
 
-	JSON_CPACK(val, "{ss,ss,si,sf,sf,sf,sf,si,sf,si,sb}",
+	JSON_CPACK(val, "{ss,ss,si,sf,sf,sf,sf,si,sf,sf,sb}",
 		   "user", user->username, "worker", worker->workername, "id", user->id,
 	    "dsps1", worker->dsps1, "dsps5", worker->dsps5, "dsps60", worker->dsps60,
 	    "dsps1440", worker->dsps1440, "lastshare", worker->last_share.tv_sec,
@@ -5603,7 +5603,8 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 	worker_instance_t *worker = client->worker_instance;
 	double tdiff, bdiff, dsps, drr, network_diff, bias;
 	user_instance_t *user = client->user_instance;
-	int64_t next_blockid, optimal, mindiff;
+	int64_t next_blockid, optimal;
+	double mindiff;
 	tv_t now_t;
 
 	mutex_lock(&ckp_sdata->uastats_lock);
@@ -5677,7 +5678,7 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 
 	/* Client suggest diff overrides worker mindiff */
 	if (client->suggest_diff)
-		mindiff = client->suggest_diff;
+		mindiff = (double)client->suggest_diff;
 	else
 		mindiff = worker->mindiff;
 	/* Allow slightly lower diffs when users choose their own mindiff */
@@ -5691,10 +5692,10 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 	/* Clamp to mindiff ~ network_diff */
 
 	/* Set to higher of pool mindiff and optimal */
-	optimal = MAX(optimal, ckp->mindiff);
+	optimal = MAX(optimal, (int64_t)ckp->mindiff);
 
 	/* Set to higher of optimal and user chosen diff */
-	optimal = MAX(optimal, mindiff);
+	optimal = MAX(optimal, (int64_t)mindiff);
 
 	/* Set to lower of optimal and pool maxdiff */
 	if (ckp->maxdiff >= 1.0)
@@ -6483,7 +6484,7 @@ static void suggest_diff(ckpool_t *ckp, stratum_instance_t *client, const char *
 	}
 	/* Clamp suggest diff to global pool mindiff */
 	if (sdiff < ckp->mindiff)
-		sdiff = ckp->mindiff;
+		sdiff = (int64_t)ckp->mindiff;
 	if (sdiff == client->suggest_diff)
 		return;
 	client->suggest_diff = sdiff;
@@ -7682,7 +7683,8 @@ static void sauth_process(ckpool_t *ckp, json_params_t *jp)
 	json_t *result_val, *err_val = NULL;
 	sdata_t *sdata = ckp->sdata;
 	stratum_instance_t *client;
-	int64_t mindiff, client_id;
+	double mindiff;
+	int64_t client_id;
 	bool ret;
 
 	client_id = jp->client_id;
@@ -7719,13 +7721,13 @@ static void sauth_process(ckpool_t *ckp, json_params_t *jp)
 	/* Update the client now if they have set a valid mindiff different
 	 * from the startdiff. suggest_diff overrides worker mindiff */
 	if (client->suggest_diff)
-		mindiff = client->suggest_diff;
+		mindiff = (double)client->suggest_diff;
 	else
 		mindiff = client->worker_instance->mindiff;
-	if (mindiff) {
+	if (mindiff >= 1.0) {
 		mindiff = MAX(ckp->mindiff, mindiff);
-		if (mindiff != client->diff) {
-			client->diff = mindiff;
+		if ((int64_t)mindiff != client->diff) {
+			client->diff = (int64_t)mindiff;
 			stratum_send_diff(sdata, client);
 		}
 	}

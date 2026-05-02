@@ -20,6 +20,7 @@
 #include <getopt.h>
 #include <grp.h>
 #include <jansson.h>
+#include <math.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1196,6 +1197,29 @@ out:
 	return ret;
 }
 
+bool json_get_num_as_double(double *store, const json_t *val, const char *res)
+{
+	json_t *entry = json_object_get(val, res);
+	bool ret = false;
+
+	if (!entry) {
+		LOGDEBUG("Json did not find entry %s", res);
+		goto out;
+	}
+	if (json_is_integer(entry)) {
+		*store = (double)json_integer_value(entry);
+	} else if (json_is_real(entry)) {
+		*store = json_real_value(entry);
+	} else {
+		LOGWARNING("Json entry %s is not a number", res);
+		goto out;
+	}
+	LOGDEBUG("Json found entry %s: %f", res, *store);
+	ret = true;
+out:
+	return ret;
+}
+
 bool json_get_uint32(uint32_t *store, const json_t *val, const char *res)
 {
 	json_t *entry = json_object_get(val, res);
@@ -1473,13 +1497,16 @@ static void parse_config(ckpool_t *ckp)
 	arr_val = json_object_get(json_conf, "trusted");
 	parse_trusted(ckp, arr_val);
 	json_get_string(&ckp->upstream, json_conf, "upstream");
-	json_get_int64(&ckp->mindiff, json_conf, "mindiff");
-	json_get_int64(&ckp->startdiff, json_conf, "startdiff");
+	json_get_num_as_double(&ckp->mindiff, json_conf, "mindiff");
+	json_get_num_as_double(&ckp->startdiff, json_conf, "startdiff");
 	json_get_int64(&ckp->highdiff, json_conf, "highdiff");
 	json_get_num_as_double(&ckp->maxdiff, json_conf, "maxdiff");
 	json_get_string(&ckp->logdir, json_conf, "logdir");
 	json_get_int(&ckp->maxclients, json_conf, "maxclients");
 	json_get_double(&ckp->donation, json_conf, "donation");
+	json_get_string(&ckp->donaddress, json_conf, "donaddress");
+	json_get_string(&ckp->tndonaddress, json_conf, "tndonaddress");
+	json_get_string(&ckp->rtdonaddress, json_conf, "rtdonaddress");
 	/* Avoid dust-sized donations */
 	if (ckp->donation < 0.1)
 		ckp->donation = 0;
@@ -1755,12 +1782,15 @@ int main(int argc, char **argv)
 			ckp.btcdpass[i] = strdup("pass");
 	}
 
-	ckp.donaddress = "bc1q28kkr5hk4gnqe3evma6runjrd2pvqyp8fpwfzu";
+	if (!ckp.donaddress)
+		ckp.donaddress = "bc1q28kkr5hk4gnqe3evma6runjrd2pvqyp8fpwfzu";
 
 	/* Donations on testnet are meaningless but required for complete
 	 * testing. Testnet and regtest addresses */
-	ckp.tndonaddress = "tb1q5fyv7tue73y4zxezh2c685qpwx0cfngfxlrgxh";
-	ckp.rtdonaddress = "bcrt1qlk935ze2fsu86zjp395uvtegztrkaezawxx0wf";
+	if (!ckp.tndonaddress)
+		ckp.tndonaddress = "tb1q5fyv7tue73y4zxezh2c685qpwx0cfngfxlrgxh";
+	if (!ckp.rtdonaddress)
+		ckp.rtdonaddress = "bcrt1qlk935ze2fsu86zjp395uvtegztrkaezawxx0wf";
 
 	if (!ckp.btcaddress && !ckp.btcsolo && !ckp.proxy)
 		quit(0, "Non solo mining must have a btcaddress in config, aborting!");
@@ -1779,9 +1809,13 @@ int main(int argc, char **argv)
 	if (!ckp.update_interval)
 		ckp.update_interval = 30;
 	if (!ckp.mindiff)
-		ckp.mindiff = 1;
+		ckp.mindiff = 1.0;
+	else if (ckp.mindiff > 1.0)
+		ckp.mindiff = floor(ckp.mindiff);
 	if (!ckp.startdiff)
-		ckp.startdiff = 42;
+		ckp.startdiff = 42.0;
+	else if (ckp.startdiff > 1.0)
+		ckp.startdiff = floor(ckp.startdiff);
 	if (!ckp.highdiff)
 		ckp.highdiff = 1000000;
 	if (ckp.maxdiff > 1.0)

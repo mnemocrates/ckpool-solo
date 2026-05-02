@@ -137,6 +137,14 @@ as a percentage (such as 0.5%) as follows:
 Donation is completely optional and disabled by default, but most appreciated.
 0.5% would be a reasonable value.
 
+By default the donation goes to the ckpool developer's address. If you are
+operating your own fork or pool infrastructure, you can redirect the donation
+to your own addresses:
+
+"donaddress" : "your_mainnet_address",
+"tndonaddress" : "your_testnet_address",
+"rtdonaddress" : "your_regtest_address",
+
 
 By default ckpool binds to every local IP address on the hardware it's run on,
 but you can restrict it to certain addresses or change the port it runs on as

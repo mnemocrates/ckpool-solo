@@ -3,6 +3,8 @@
 *.la
 *.lo
 
+*.conf
+
 autom4te.cache
 .deps
 

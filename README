@@ -299,6 +299,18 @@ not set on a btcd.
 developer of ckpool to assist in further development and maintenance of the
 code. Takes a floating point value and defaults to zero if not set.
 
+"donaddress" : Override the mainnet Bitcoin address that receives the donation
+percentage set by "donation". Defaults to the ckpool developer's address if
+not specified.
+
+"tndonaddress" : Override the testnet Bitcoin address that receives donations
+when running on testnet. Defaults to the ckpool developer's testnet address if
+not specified.
+
+"rtdonaddress" : Override the regtest Bitcoin address that receives donations
+when running in regtest mode. Defaults to the ckpool developer's regtest
+address if not specified.
+
 "nodeserver" : This takes the same format as the serverurl array and specifies
 additional IPs/ports to bind to that will accept incoming requests for mining
 node communications. It is recommended to selectively isolate this address
@@ -330,9 +342,13 @@ all of them and ports up to 1024 usually require privileged access.
 "redirecturl" : This is an array of URLs that ckpool will redirect active
 miners to in redirector mode. They must be valid resolvable URLs+ports.
 
-"mindiff" : Minimum diff that vardiff will allow miners to drop to. Default 1
+"mindiff" : Minimum diff that vardiff will allow miners to drop to. Accepts a
+floating point value; values less than 1 are used as-is for sub-1 difficulty,
+while values greater than 1 are floored to the nearest integer. Default 1
 
-"startdiff" : Starting diff that new clients are given. Default 42
+"startdiff" : Starting diff that new clients are given. Accepts a floating
+point value; values less than 1 are used as-is, while values greater than 1
+are floored to the nearest integer. Default 42
 
 "maxdiff" : Optional maximum diff that vardiff will clamp to. Accepts a
 floating point value; values greater than 1 are floored to the nearest

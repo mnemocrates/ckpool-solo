@@ -2037,7 +2037,7 @@ static void suggest_diff(ckpool_t *ckp, connsock_t *cs, proxy_instance_t *proxy)
 	JSON_CPACK(req, "{s:i,s:s, s:[I]}",
 		        "id", 41,
 		        "method", "mining.suggest",
-		        "params", ckp->mindiff);
+		        "params", (int64_t)ckp->mindiff);
 	ret = send_json_msg(cs, req);
 	json_decref(req);
 	if (!ret) {

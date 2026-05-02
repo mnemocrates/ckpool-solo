@@ -233,8 +233,8 @@ struct ckpool_instance {
 	int nonce2length; // Extranonce2 length
 
 	/* Difficulty settings */
-	int64_t mindiff; // Default 1
-	int64_t startdiff; // Default 42
+	double mindiff; // Default 1
+	double startdiff; // Default 42
 	int64_t highdiff; // Default 1000000
 	double maxdiff; // No default (0 = unlimited)
 
@@ -377,6 +377,7 @@ bool json_get_string(char **store, const json_t *val, const char *res);
 bool json_get_int64(int64_t *store, const json_t *val, const char *res);
 bool json_get_int(int *store, const json_t *val, const char *res);
 bool json_get_double(double *store, const json_t *val, const char *res);
+bool json_get_num_as_double(double *store, const json_t *val, const char *res);
 bool json_get_uint32(uint32_t *store, const json_t *val, const char *res);
 bool json_get_bool(bool *store, const json_t *val, const char *res);
 bool json_getdel_int(int *store, json_t *val, const char *res);
