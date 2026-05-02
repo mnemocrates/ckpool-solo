@@ -1476,7 +1476,7 @@ static void parse_config(ckpool_t *ckp)
 	json_get_int64(&ckp->mindiff, json_conf, "mindiff");
 	json_get_int64(&ckp->startdiff, json_conf, "startdiff");
 	json_get_int64(&ckp->highdiff, json_conf, "highdiff");
-	json_get_int64(&ckp->maxdiff, json_conf, "maxdiff");
+	json_get_num_as_double(&ckp->maxdiff, json_conf, "maxdiff");
 	json_get_string(&ckp->logdir, json_conf, "logdir");
 	json_get_int(&ckp->maxclients, json_conf, "maxclients");
 	json_get_double(&ckp->donation, json_conf, "donation");
@@ -1784,6 +1784,8 @@ int main(int argc, char **argv)
 		ckp.startdiff = 42;
 	if (!ckp.highdiff)
 		ckp.highdiff = 1000000;
+	if (ckp.maxdiff > 1.0)
+		ckp.maxdiff = floor(ckp.maxdiff);
 	if (!ckp.logdir)
 		ckp.logdir = strdup("logs");
 	if (!ckp.serverurls)

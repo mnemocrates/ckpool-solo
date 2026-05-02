@@ -5697,8 +5697,8 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 	optimal = MAX(optimal, mindiff);
 
 	/* Set to lower of optimal and pool maxdiff */
-	if (ckp->maxdiff)
-		optimal = MIN(optimal, ckp->maxdiff);
+	if (ckp->maxdiff >= 1.0)
+		optimal = MIN(optimal, (int64_t)ckp->maxdiff);
 
 	/* Set to lower of optimal and network_diff */
 	optimal = MIN(optimal, network_diff);

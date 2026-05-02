@@ -334,8 +334,9 @@ miners to in redirector mode. They must be valid resolvable URLs+ports.
 
 "startdiff" : Starting diff that new clients are given. Default 42
 
-"maxdiff" : Optional maximum diff that vardiff will clamp to where zero is no
-maximum.
+"maxdiff" : Optional maximum diff that vardiff will clamp to. Accepts a
+floating point value; values greater than 1 are floored to the nearest
+integer. Zero (or any value less than 1) means no maximum.
 
 "logdir" : Which directory to store pool and client logs. Default "logs"
 
