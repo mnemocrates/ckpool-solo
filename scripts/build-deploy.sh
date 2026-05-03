@@ -11,8 +11,11 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    echo "Error: Not inside a git repository. Run this script from within the ckpool-solo repo."
+    exit 1
+fi
 
 CLEAN=true
 YES=false
@@ -52,7 +55,7 @@ fi
 cd "$REPO_ROOT"
 
 # Show current branch and optionally prompt
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "(unknown)")"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "Current branch: $CURRENT_BRANCH"
 
 if [ "$YES" = false ]; then
