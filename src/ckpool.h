@@ -235,7 +235,7 @@ struct ckpool_instance {
 	/* Difficulty settings */
 	double mindiff; // Default 1
 	double startdiff; // Default 42
-	int64_t highdiff; // Default 1000000
+	double highdiff; // Default 1000000
 	double maxdiff; // No default (0 = unlimited)
 
 	/* Coinbase data */

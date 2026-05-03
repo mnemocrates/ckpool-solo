@@ -235,8 +235,8 @@ struct stratum_instance {
 	uint64_t enonce1_64;
 	int session_id;
 
-	int64_t diff; /* Current diff */
-	int64_t old_diff; /* Previous diff */
+	double diff; /* Current diff */
+	double old_diff; /* Previous diff */
 	int64_t diff_change_job_id; /* Last job_id we changed diff */
 
 	int64_t uadiff; /* Shares not yet accounted for in hashmeter */
@@ -286,7 +286,7 @@ struct stratum_instance {
 	time_t last_txns; /* Last time this worker requested txn hashes */
 	time_t disconnected_time; /* Time this instance disconnected */
 
-	int64_t suggest_diff; /* Stratum client suggested diff */
+	double suggest_diff; /* Stratum client suggested diff */
 	double best_diff; /* Best share found by this instance */
 
 	sdata_t *sdata; /* Which sdata this client is bound to */
@@ -3120,10 +3120,9 @@ static void update_diff(ckpool_t *ckp, const char *cmd)
 		return;
 	}
 
-	/* We only really care about integer diffs so clamp the lower limit to
-	 * 1 or it will round down to zero. */
-	if (unlikely(diff < 1))
-		diff = 1;
+	/* Clamp to a sane minimum to avoid zero or negative diffs */
+	if (unlikely(diff < 0.0001))
+		diff = 0.0001;
 
 	dsdata = proxy->sdata;
 
@@ -3389,7 +3388,7 @@ static stratum_instance_t *__stratum_add_instance(ckpool_t *ckp, int64_t id, con
 	if (server >= ckp->serverurls)
 		server = 0;
 	client->server = server;
-	client->diff = client->old_diff = (int64_t)ckp->startdiff;
+	client->diff = client->old_diff = ckp->startdiff;
 	if (ckp->server_highdiff && ckp->server_highdiff[server]) {
 		client->suggest_diff = ckp->highdiff;
 		if (client->suggest_diff > client->diff)
@@ -5567,7 +5566,7 @@ static void stratum_send_diff(sdata_t *sdata, const stratum_instance_t *client)
 {
 	json_t *json_msg;
 
-	JSON_CPACK(json_msg, "{s[I]soss}", "params", client->diff, "id", json_null(),
+	JSON_CPACK(json_msg, "{s[f]soss}", "params", client->diff, "id", json_null(),
 			     "method", "mining.set_difficulty");
 	stratum_add_send(sdata, json_msg, client->id, SM_DIFF);
 }
@@ -5603,8 +5602,8 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 	worker_instance_t *worker = client->worker_instance;
 	double tdiff, bdiff, dsps, drr, network_diff, bias;
 	user_instance_t *user = client->user_instance;
-	int64_t next_blockid, optimal;
-	double mindiff;
+	int64_t next_blockid;
+	double optimal, mindiff;
 	tv_t now_t;
 
 	mutex_lock(&ckp_sdata->uastats_lock);
@@ -5670,7 +5669,7 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 
 	/* Diff rate ratio */
 	dsps = client->dsps5 / bias;
-	drr = dsps / (double)client->diff;
+	drr = dsps / client->diff;
 
 	/* Optimal rate product is 0.3, allow some hysteresis. */
 	if (drr > 0.15 && drr < 0.4)
@@ -5678,33 +5677,33 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 
 	/* Client suggest diff overrides worker mindiff */
 	if (client->suggest_diff)
-		mindiff = (double)client->suggest_diff;
+		mindiff = client->suggest_diff;
 	else
 		mindiff = worker->mindiff;
 	/* Allow slightly lower diffs when users choose their own mindiff */
 	if (mindiff) {
 		if (drr < 0.5)
 			return;
-		optimal = lround(dsps * 2.4);
+		optimal = dsps * 2.4;
 	} else
-		optimal = lround(dsps * 3.33);
+		optimal = dsps * 3.33;
 
 	/* Clamp to mindiff ~ network_diff */
 
 	/* Set to higher of pool mindiff and optimal */
-	optimal = MAX(optimal, (int64_t)ckp->mindiff);
+	optimal = MAX(optimal, ckp->mindiff);
 
 	/* Set to higher of optimal and user chosen diff */
-	optimal = MAX(optimal, (int64_t)mindiff);
+	optimal = MAX(optimal, mindiff);
 
 	/* Set to lower of optimal and pool maxdiff */
-	if (ckp->maxdiff >= 1.0)
-		optimal = MIN(optimal, (int64_t)ckp->maxdiff);
+	if (ckp->maxdiff >= ckp->mindiff && ckp->maxdiff > 0)
+		optimal = MIN(optimal, ckp->maxdiff);
 
 	/* Set to lower of optimal and network_diff */
 	optimal = MIN(optimal, network_diff);
 
-	if (unlikely(optimal < 1))
+	if (unlikely(optimal < ckp->mindiff))
 		return;
 
 	if (client->diff == optimal)
@@ -5720,7 +5719,7 @@ static void add_submit(ckpool_t *ckp, stratum_instance_t *client, const double d
 
 	client->ssdc = 0;
 
-	LOGINFO("Client %s biased dsps %.2f dsps %.2f drr %.2f adjust diff from %"PRId64" to: %"PRId64" ",
+	LOGINFO("Client %s biased dsps %.2f dsps %.2f drr %.2f adjust diff from %g to: %g",
 		client->identity, dsps, client->dsps5, drr, client->diff, optimal);
 
 	copy_tv(&client->ldc, &now_t);
@@ -6470,21 +6469,21 @@ static void suggest_diff(ckpool_t *ckp, stratum_instance_t *client, const char *
 			 const json_t *params_val)
 {
 	json_t *arr_val = json_array_get(params_val, 0);
-	int64_t sdiff;
+	double sdiff;
 
 	if (unlikely(!client_active(client))) {
 		LOGNOTICE("Attempted to suggest diff on unauthorised client %s", client->identity);
 		return;
 	}
-	if (arr_val && json_is_integer(arr_val))
-		sdiff = json_integer_value(arr_val);
-	else if (sscanf(method, "mining.suggest_difficulty(%"PRId64, &sdiff) != 1) {
+	if (arr_val && json_is_number(arr_val))
+		sdiff = json_number_value(arr_val);
+	else if (sscanf(method, "mining.suggest_difficulty(%lf", &sdiff) != 1) {
 		LOGINFO("Failed to parse suggest_difficulty for client %s", client->identity);
 		return;
 	}
 	/* Clamp suggest diff to global pool mindiff */
 	if (sdiff < ckp->mindiff)
-		sdiff = (int64_t)ckp->mindiff;
+		sdiff = ckp->mindiff;
 	if (sdiff == client->suggest_diff)
 		return;
 	client->suggest_diff = sdiff;
@@ -7721,13 +7720,13 @@ static void sauth_process(ckpool_t *ckp, json_params_t *jp)
 	/* Update the client now if they have set a valid mindiff different
 	 * from the startdiff. suggest_diff overrides worker mindiff */
 	if (client->suggest_diff)
-		mindiff = (double)client->suggest_diff;
+		mindiff = client->suggest_diff;
 	else
 		mindiff = client->worker_instance->mindiff;
-	if (mindiff >= 1.0) {
+	if (mindiff > 0) {
 		mindiff = MAX(ckp->mindiff, mindiff);
-		if ((int64_t)mindiff != client->diff) {
-			client->diff = (int64_t)mindiff;
+		if (mindiff != client->diff) {
+			client->diff = mindiff;
 			stratum_send_diff(sdata, client);
 		}
 	}
