@@ -145,9 +145,9 @@ struct user_instance {
 	struct userwb *userwbs; /* Protected by instance lock */
 
 	double best_diff; /* Best share found by this user */
-	int64_t best_ever; /* Best share ever found by this user */
+	double best_ever; /* Best share ever found by this user */
 
-	int64_t shares;
+	double shares;
 
 	int64_t uadiff; /* Shares not yet accounted for in hashmeter */
 
@@ -177,7 +177,7 @@ struct worker_instance {
 	worker_instance_t *next;
 	worker_instance_t *prev;
 
-	int64_t shares;
+	double shares;
 
 	int64_t uadiff; /* Shares not yet accounted for in hashmeter */
 
@@ -191,7 +191,7 @@ struct worker_instance {
 	time_t start_time;
 
 	double best_diff; /* Best share found by this worker */
-	int64_t best_ever; /* Best share ever found by this worker */
+	double best_ever; /* Best share ever found by this worker */
 	double mindiff; /* User chosen mindiff */
 
 	bool idle;
@@ -5204,14 +5204,14 @@ static void read_userstats(ckpool_t *ckp, sdata_t *sdata, int tvsec_diff)
 		user->dsps10080 = dsps_from_key(val, "hashrate7d");
 		json_get_int(&lastshare, val, "lastshare");
 		user->last_share.tv_sec = lastshare;
-		json_get_int64(&user->shares, val, "shares");
+		json_get_double(&user->shares, val, "shares");
 		json_get_double(&user->best_diff, val, "bestshare");
-		json_get_int64(&user->best_ever, val, "bestever");
+		json_get_double(&user->best_ever, val, "bestever");
 		json_get_int64(&authorised, val, "authorised");
 		user->auth_time = authorised;
 		if (user->best_diff > user->best_ever)
 			user->best_ever = user->best_diff;
-		LOGINFO("Successfully read user %s stats %f %f %f %f %f %f %ld %ld", user->username,
+		LOGINFO("Successfully read user %s stats %f %f %f %f %f %f %f %ld", user->username,
 			user->dsps1, user->dsps5, user->dsps60, user->dsps1440,
 			user->dsps10080, user->best_diff, user->best_ever, user->auth_time);
 		if (tvsec_diff > 60)
@@ -5243,11 +5243,11 @@ static void read_userstats(ckpool_t *ckp, sdata_t *sdata, int tvsec_diff)
 			json_get_int(&lastshare, arr_val, "lastshare");
 			worker->last_share.tv_sec = lastshare;
 			json_get_double(&worker->best_diff, arr_val, "bestshare");
-			json_get_int64(&worker->best_ever, arr_val, "bestever");
+			json_get_double(&worker->best_ever, arr_val, "bestever");
 			if (worker->best_diff > worker->best_ever)
 				worker->best_ever = worker->best_diff;
-			json_get_int64(&worker->shares, arr_val, "shares");
-			LOGINFO("Successfully read worker %s stats %f %f %f %f %f %ld", worker->workername,
+			json_get_double(&worker->shares, arr_val, "shares");
+			LOGINFO("Successfully read worker %s stats %f %f %f %f %f %f", worker->workername,
 				worker->dsps1, worker->dsps5, worker->dsps60, worker->dsps1440, worker->best_diff, worker->best_ever);
 			if (tvsec_diff > 60)
 				decay_worker(worker, 0, &now);
@@ -8036,7 +8036,7 @@ static void *statsupdate(void *arg)
 			ghs = user->dsps10080 * nonces;
 			suffix_string(ghs, suffix10080, 16, 0);
 
-			JSON_CPACK(val, "{ss,ss,ss,ss,ss,si,si,sI,sf,sI, sI}",
+			JSON_CPACK(val, "{ss,ss,ss,ss,ss,si,si,sf,sf,sf, sI}",
 					"hashrate1m", suffix1,
 					"hashrate5m", suffix5,
 					"hashrate1hr", suffix60,
@@ -8099,7 +8099,7 @@ static void *statsupdate(void *arg)
 
 				LOGDEBUG("Storing worker %s", worker->workername);
 
-				JSON_CPACK(wval, "{ss,ss,ss,ss,ss,ss,si,sI,sf,sI}",
+				JSON_CPACK(wval, "{ss,ss,ss,ss,ss,ss,si,sf,sf,sf}",
 						"workername", worker->workername,
 						"hashrate1m", suffix1,
 						"hashrate5m", suffix5,
@@ -8116,7 +8116,7 @@ static void *statsupdate(void *arg)
 			json_object_set_new_nocheck(val, "worker", user_array);
 			ASPRINTF(&fname, "%s/users/%s", ckp->logdir, user->username);
 			s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_EOL |
-				JSON_REAL_PRECISION(16) | JSON_INDENT(1));
+				JSON_REAL_PRECISION(4) | JSON_INDENT(1));
 			add_log_entry(&log_entries, &fname, &s);
 			json_decref(val);
 			if (ckp->remote)
