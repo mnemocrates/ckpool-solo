@@ -66,11 +66,11 @@ struct pool_stats {
 	double sps15;
 	double sps60;
 
-	/* Diff shares stats */
-	int64_t unaccounted_diff_shares;
-	int64_t accounted_diff_shares;
-	int64_t unaccounted_rejects;
-	int64_t accounted_rejects;
+	/* Diff shares stats - double to support sub-1 lhr difficulty */
+	double unaccounted_diff_shares;
+	double accounted_diff_shares;
+	double unaccounted_rejects;
+	double accounted_rejects;
 
 	/* Diff shares per second for 1/5/15... minute rolling averages */
 	double dsps1;
@@ -82,7 +82,7 @@ struct pool_stats {
 	double dsps10080;
 
 	double network_diff;
-	int64_t best_diff;
+	double best_diff;
 };
 
 typedef struct pool_stats pool_stats_t;
@@ -4492,7 +4492,7 @@ static void get_poolstats(sdata_t *sdata, int *sockd)
 	json_t *val;
 
 	mutex_lock(&sdata->stats_lock);
-	JSON_CPACK(val, "{si,si,si,si,si,sI,sf,sf,sf,sf,sI,sI,sf,sf,sf,sf,sf,sf,sf}",
+	JSON_CPACK(val, "{si,si,si,si,si,sI,sf,sf,sf,sf,sf,sf,sf,sf,sf,sf,sf,sf,sf}",
 		   "start", stats->start_time.tv_sec, "update", stats->last_update.tv_sec,
 	    "workers", stats->workers + stats->remote_workers, "users", stats->users + stats->remote_users,
 	    "disconnected", stats->disconnected,
@@ -8190,7 +8190,7 @@ static void *statsupdate(void *arg)
 
 		/* Round to 4 significant digits */
 		percent = round(stats->accounted_diff_shares * 10000 / stats->network_diff) / 100;
-		JSON_CPACK(val, "{sf,sI,sI,sI,sf,sf,sf,sf}",
+		JSON_CPACK(val, "{sf,sf,sf,sf,sf,sf,sf,sf}",
 			        "diff", percent,
 				"accepted", stats->accounted_diff_shares,
 				"rejected", stats->accounted_rejects,
@@ -8199,7 +8199,7 @@ static void *statsupdate(void *arg)
 				"SPS5m", stats->sps5,
 				"SPS15m", stats->sps15,
 				"SPS1h", stats->sps60);
-		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(3));
+		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(6));
 		json_decref(val);
 		LOGNOTICE("Pool:%s", s);
 		fprintf(fp, "%s\n", s);
@@ -8273,8 +8273,8 @@ static void *statsupdate(void *arg)
 		/* Update stats 32 times per minute to divide up userstats,
 		 * displaying status every minute. */
 		for (i = 0; i < 32; i++) {
-			int64_t unaccounted_shares,
-				unaccounted_diff_shares,
+			int64_t unaccounted_shares;
+			double unaccounted_diff_shares,
 				unaccounted_rejects;
 
 			ts_to_tv(&diff, &stats->last_update);
@@ -8390,9 +8390,9 @@ static void read_poolstats(ckpool_t *ckp, int *tvsec_diff)
 	json_get_double(&stats->sps5, val, "SPS5m");
 	json_get_double(&stats->sps15, val, "SPS15m");
 	json_get_double(&stats->sps60, val, "SPS1h");
-	json_get_int64(&stats->accounted_diff_shares, val, "accepted");
-	json_get_int64(&stats->accounted_rejects, val, "rejected");
-	json_get_int64(&stats->best_diff, val, "bestshare");
+	json_get_double(&stats->accounted_diff_shares, val, "accepted");
+	json_get_double(&stats->accounted_rejects, val, "rejected");
+	json_get_double(&stats->best_diff, val, "bestshare");
 	json_decref(val);
 
 	LOGINFO("Successfully read pool sps: %s", sps);

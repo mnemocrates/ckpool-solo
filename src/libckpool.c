@@ -2102,7 +2102,7 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 		if (decimal)
 			snprintf(buf, bufsiz, "%.3g%s", dval, suffix);
 		else
-			snprintf(buf, bufsiz, "%d%s", (unsigned int)dval, suffix);
+			snprintf(buf, bufsiz, "%.3g%s", dval, suffix);
 	} else {
 		/* Always show sigdigits + 1, padded on right with zeroes
 		 * followed by suffix */
