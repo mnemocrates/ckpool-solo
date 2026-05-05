@@ -1764,6 +1764,12 @@ int main(int argc, char **argv)
 	if (ret && errno != EEXIST)
 		quit(1, "Failed to make directory %s", ckp.socket_dir);
 
+	/* Sentinel: distinguish "not set in config" from explicit 0.0.
+	 * json_get_num_as_double only writes to the field when the key exists,
+	 * so any field still at -1.0 after parse_config was absent from the
+	 * config file. */
+	ckp.mindiff = ckp.startdiff = ckp.highdiff = ckp.maxdiff = -1.0;
+
 	parse_config(&ckp);
 	/* Set defaults if not found in config file */
 	if (!ckp.btcds) {
@@ -1808,17 +1814,27 @@ int main(int argc, char **argv)
 		quit(0, "Invalid nonce2length %d specified, must be 2~8", ckp.nonce2length);
 	if (!ckp.update_interval)
 		ckp.update_interval = 30;
-	if (!ckp.mindiff)
+	/* Apply defaults for diff fields that were absent from the config.
+	 * Fields left at the -1.0 sentinel were not set by the user.
+	 * Explicit zero is rejected as meaningless for mindiff/startdiff. */
+	if (ckp.mindiff < 0)
 		ckp.mindiff = 1.0;
+	else if (ckp.mindiff == 0.0)
+		quit(0, "mindiff must be > 0; use a positive value or omit to use the default of 1");
 	else if (ckp.mindiff > 1.0)
 		ckp.mindiff = floor(ckp.mindiff);
-	if (!ckp.startdiff)
+	if (ckp.startdiff < 0)
 		ckp.startdiff = 42.0;
+	else if (ckp.startdiff == 0.0)
+		quit(0, "startdiff must be > 0; use a positive value or omit to use the default of 42");
 	else if (ckp.startdiff > 1.0)
 		ckp.startdiff = floor(ckp.startdiff);
-	if (!ckp.highdiff)
+	if (ckp.highdiff < 0)
 		ckp.highdiff = 1000000;
-	if (ckp.maxdiff > 1.0)
+	/* maxdiff < 0 (not set) means unlimited; normalise to 0.0 */
+	if (ckp.maxdiff < 0)
+		ckp.maxdiff = 0.0;
+	else if (ckp.maxdiff > 1.0)
 		ckp.maxdiff = floor(ckp.maxdiff);
 	if (!ckp.logdir)
 		ckp.logdir = strdup("logs");

@@ -233,10 +233,10 @@ struct ckpool_instance {
 	int nonce2length; // Extranonce2 length
 
 	/* Difficulty settings */
-	double mindiff; // Default 1
-	double startdiff; // Default 42
-	double highdiff; // Default 1000000
-	double maxdiff; // No default (0 = unlimited)
+	double mindiff;   // Default 1.0; sub-1 fractional values supported for lhr mode
+	double startdiff; // Default 42.0; sub-1 fractional values supported for lhr mode
+	double highdiff;  // Default 1000000; auto-applied to serverurl ports > 4000
+	double maxdiff;   // 0.0 = unlimited (no ceiling)
 
 	/* Coinbase data */
 	char *btcaddress; // Address to mine to

@@ -2139,8 +2139,7 @@ static bool proxy_alive(ckpool_t *ckp, proxy_instance_t *proxi, connsock_t *cs,
 	parent->auth_status = STATUS_SUCCESS;
 	proxi->authorised = ret = true;
 	parent->backoff = 0;
-	if (ckp->mindiff > 1)
-		suggest_diff(ckp, cs, proxi);
+	suggest_diff(ckp, cs, proxi);
 out:
 	if (!ret) {
 		send_stratifier_deadproxy(ckp, proxi->id, proxi->subid);
