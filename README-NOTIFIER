@@ -1,0 +1,141 @@
+CKPOOL NOTIFIER SETUP
+=====================
+
+The `notifier` binary is a small, fire-and-forget utility that signals a
+running ckpool instance to immediately fetch a new block template from
+bitcoind and broadcast updated work to all connected miners.
+
+It is invoked by Bitcoin Core's -blocknotify mechanism each time a new block
+appears on the network, giving miners fresh work with the minimum possible
+latency.  Without it, ckpool falls back to polling bitcoind at the interval
+set by the `blockpoll` config key (default 100 ms).
+
+
+---
+HOW IT WORKS
+
+When Bitcoin Core detects a new block it executes the command defined in
+bitcoin.conf's `blocknotify` option.  The notifier binary opens the Unix
+domain socket that the running ckpool stratifier process is listening on,
+sends the string "update", and exits.  The stratifier responds by requesting
+a new block template from bitcoind and broadcasting updated work to miners.
+
+The socket path is constructed as:
+
+    {socket_dir}/{name}/stratifier
+
+where:
+  socket_dir  The base socket directory.  Defaults to /tmp.
+              Override with ckpool's -s flag (and match it with notifier's -s).
+  name        The instance name.  Defaults to "ckpool".
+              Override with ckpool's -n flag (and match it with notifier's -n).
+
+Example default path:  /tmp/ckpool/stratifier
+
+
+---
+NOTIFIER OPTIONS
+
+  -n NAME    Instance name (must match the -n flag used to start ckpool).
+             Default: "ckpool" (or "ckproxy" when -p is given).
+  -s DIR     Socket base directory (must match ckpool's -s flag).
+             Default: /tmp
+  -p         Proxy mode — sets the default name to "ckproxy" instead of "ckpool".
+
+
+---
+SINGLE-INSTANCE SETUP
+
+Step 1 — Enable the notify flag in your ckpool config for the relevant btcd
+entry.  This tells ckpool not to poll bitcoind for block changes:
+
+    "btcd" : [
+        {
+            "url"    : "127.0.0.1:8332",
+            "auth"   : "youruser",
+            "pass"   : "yourpass",
+            "notify" : true
+        }
+    ]
+
+Step 2 — Start ckpool normally (name defaults to "ckpool"):
+
+    src/ckpool -B -c ckpool.conf
+
+Step 3 — Add the following to bitcoin.conf, pointing to the notifier binary:
+
+    blocknotify=/path/to/notifier
+
+If ckpool was started with a custom -n or -s flag, include those too:
+
+    blocknotify=/path/to/notifier -n mypool -s /var/run/ckpool
+
+Step 4 — Reload or restart bitcoind to pick up the blocknotify change.
+
+After the next block is found, you should see a log line from ckpool such as:
+    NOTICE: Notified stratifier of block update
+
+
+---
+MULTI-INSTANCE SETUP
+
+Bitcoin Core accepts only a single blocknotify command, so when multiple
+ckpool instances share the same bitcoind you need a wrapper script that calls
+the notifier once per instance.
+
+A ready-made template is provided at scripts/blocknotify-multi.sh.
+
+Step 1 — Start each ckpool instance with a unique -n name:
+
+    src/ckpool -B -n ckpool-lhr -c ckpool-lhr.conf
+    src/ckpool -B -n ckpool-std -c ckpool-std.conf
+
+This creates sockets at:
+    /tmp/ckpool-lhr/stratifier
+    /tmp/ckpool-std/stratifier
+
+Step 2 — Copy and edit the wrapper script:
+
+    cp scripts/blocknotify-multi.sh /usr/local/bin/blocknotify-multi.sh
+    chmod +x /usr/local/bin/blocknotify-multi.sh
+
+Edit the script and adjust the -n values to match every ckpool instance
+name you are running.  Each line is independent; a failure on one does not
+prevent the others from being notified.
+
+Step 3 — Set "notify": true in each ckpool config's btcd entry (same as
+the single-instance case above).
+
+Step 4 — Point bitcoin.conf at the wrapper:
+
+    blocknotify=/usr/local/bin/blocknotify-multi.sh
+
+Step 5 — Reload or restart bitcoind.
+
+If ckpool instances use a custom socket directory (-s), pass the same -s
+flag to each notifier call inside the wrapper script.  Example:
+
+    "$NOTIFIER" -n ckpool-lhr -s /var/run/ckpool || true
+    "$NOTIFIER" -n ckpool-std -s /var/run/ckpool || true
+
+The NOTIFIER environment variable in the wrapper script can be used to
+override the path to the notifier binary without editing the script:
+
+    NOTIFIER=/opt/ckpool/bin/notifier blocknotify-multi.sh
+
+
+---
+TROUBLESHOOTING
+
+- "Failed to open socket"
+  The socket path does not exist.  Either ckpool is not running, or the -n/-s
+  flags passed to the notifier do not match those used to start ckpool.
+  Check: ls /tmp/ckpool*/stratifier
+
+- No log line after a new block
+  Verify bitcoin.conf has the blocknotify line and that bitcoind was restarted
+  after adding it.  Check the bitcoind debug log for blocknotify execution.
+
+- Notifier not found
+  Place the notifier binary on $PATH or use an absolute path in bitcoin.conf /
+  the wrapper script.
