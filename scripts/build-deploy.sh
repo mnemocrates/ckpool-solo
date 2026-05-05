@@ -102,6 +102,11 @@ fi
 # Create target directory
 mkdir -p "$TARGET_DIR"
 
+# Deploy blocknotify script
+echo "Deploying blocknotify-multi.sh to $TARGET_DIR/blocknotify-multi.sh ..."
+cp scripts/blocknotify-multi.sh "$TARGET_DIR/blocknotify-multi.sh"
+chmod +x "$TARGET_DIR/blocknotify-multi.sh"
+
 # Deploy binaries
 echo "Deploying binaries to $TARGET_DIR ..."
 cp src/ckpool   "$TARGET_DIR/ckpool"
