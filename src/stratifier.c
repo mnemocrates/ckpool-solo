@@ -8044,9 +8044,9 @@ static void *statsupdate(void *arg)
 					"hashrate7d", suffix10080,
 				        "lastshare", user->last_share.tv_sec,
 					"workers", user->workers + user->remote_workers,
-					"shares", user->shares,
-					"bestshare", user->best_diff,
-					"bestever", user->best_ever,
+					"shares", round(user->shares * 10000.0) / 10000.0,
+					"bestshare", round(user->best_diff * 10000.0) / 10000.0,
+					"bestever", round(user->best_ever * 10000.0) / 10000.0,
 					"authorised", user->auth_time);
 
 			if (user->remote_workers) {
@@ -8107,16 +8107,16 @@ static void *statsupdate(void *arg)
 						"hashrate1d", suffix1440,
 						"hashrate7d", suffix10080,
 					        "lastshare", worker->last_share.tv_sec,
-						"shares", worker->shares,
-						"bestshare", worker->best_diff,
-						"bestever", worker->best_ever);
+						"shares", round(worker->shares * 10000.0) / 10000.0,
+						"bestshare", round(worker->best_diff * 10000.0) / 10000.0,
+						"bestever", round(worker->best_ever * 10000.0) / 10000.0);
 				json_array_append_new(user_array, wval);
 			}
 
 			json_object_set_new_nocheck(val, "worker", user_array);
 			ASPRINTF(&fname, "%s/users/%s", ckp->logdir, user->username);
 			s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_EOL |
-				JSON_REAL_PRECISION(4) | JSON_INDENT(1));
+				JSON_REAL_PRECISION(17) | JSON_INDENT(1));
 			add_log_entry(&log_entries, &fname, &s);
 			json_decref(val);
 			if (ckp->remote)
@@ -8194,12 +8194,12 @@ static void *statsupdate(void *arg)
 			        "diff", percent,
 				"accepted", stats->accounted_diff_shares,
 				"rejected", stats->accounted_rejects,
-				"bestshare", stats->best_diff,
+				"bestshare", round(stats->best_diff * 10000.0) / 10000.0,
 				"SPS1m", stats->sps1,
 				"SPS5m", stats->sps5,
 				"SPS15m", stats->sps15,
 				"SPS1h", stats->sps60);
-		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(6));
+		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(17));
 		json_decref(val);
 		LOGNOTICE("Pool:%s", s);
 		fprintf(fp, "%s\n", s);
