@@ -8116,7 +8116,7 @@ static void *statsupdate(void *arg)
 			json_object_set_new_nocheck(val, "worker", user_array);
 			ASPRINTF(&fname, "%s/users/%s", ckp->logdir, user->username);
 			s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_EOL |
-				JSON_REAL_PRECISION(17) | JSON_INDENT(1));
+				JSON_REAL_PRECISION(14) | JSON_INDENT(1));
 			add_log_entry(&log_entries, &fname, &s);
 			json_decref(val);
 			if (ckp->remote)
@@ -8199,7 +8199,7 @@ static void *statsupdate(void *arg)
 				"SPS5m", stats->sps5,
 				"SPS15m", stats->sps15,
 				"SPS1h", stats->sps60);
-		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(17));
+		s = json_dumps(val, JSON_NO_UTF8 | JSON_PRESERVE_ORDER | JSON_REAL_PRECISION(14));
 		json_decref(val);
 		LOGNOTICE("Pool:%s", s);
 		fprintf(fp, "%s\n", s);
